@@ -1,0 +1,753 @@
+2<title>하루키 문학 지도 — 장소 아카이브</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" integrity="sha512-YWEAJHtEfYNytZbo3AS1jY6UGuAWWCVCUYA8cxrCUgQxHYPo/qJXhkMy9EhZOoDvyLwSKzfMg8G7OTgSlP0kDA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+:root{
+  --paper:#EAE3D2;
+  --paper-raised:#F6F1E4;
+  --ink:#211E19;
+  --ink-soft:#635C4A;
+  --ink-faint:#9C9179;
+  --rule:#CBBE9E;
+  --rule-soft:#DED4B9;
+  --accent:#A23327;
+  --accent-soft:#A2332722;
+  --indigo:#33465E;
+  --indigo-soft:#33465E1c;
+  --moss:#4B6349;
+  --moss-soft:#4B63491c;
+  --brass:#8F6B28;
+  --brass-soft:#8F6B281c;
+  --shadow:0 1px 2px rgba(33,30,25,0.08), 0 4px 14px rgba(33,30,25,0.06);
+  --font-display:"Iowan Old Style","Noto Serif KR","Nanum Myeongjo",Georgia,serif;
+  --font-body:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  --font-mono:ui-monospace,"SFMono-Regular","JetBrains Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#17140F;
+    --paper-raised:#221E17;
+    --ink:#EDE4CD;
+    --ink-soft:#B3A98C;
+    --ink-faint:#736A54;
+    --rule:#3B3527;
+    --rule-soft:#2C2820;
+    --accent:#D2604F;
+    --accent-soft:#D2604F26;
+    --indigo:#8CA2BC;
+    --indigo-soft:#8CA2BC22;
+    --moss:#8FB08D;
+    --moss-soft:#8FB08D22;
+    --brass:#D2AC63;
+    --brass-soft:#D2AC6322;
+    --shadow:0 1px 2px rgba(0,0,0,0.3), 0 4px 18px rgba(0,0,0,0.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#17140F;
+  --paper-raised:#221E17;
+  --ink:#EDE4CD;
+  --ink-soft:#B3A98C;
+  --ink-faint:#736A54;
+  --rule:#3B3527;
+  --rule-soft:#2C2820;
+  --accent:#D2604F;
+  --accent-soft:#D2604F26;
+  --indigo:#8CA2BC;
+  --indigo-soft:#8CA2BC22;
+  --moss:#8FB08D;
+  --moss-soft:#8FB08D22;
+  --brass:#D2AC63;
+  --brass-soft:#D2AC6322;
+  --shadow:0 1px 2px rgba(0,0,0,0.3), 0 4px 18px rgba(0,0,0,0.35);
+}
+:root[data-theme="light"]{
+  --paper:#EAE3D2;
+  --paper-raised:#F6F1E4;
+  --ink:#211E19;
+  --ink-soft:#635C4A;
+  --ink-faint:#9C9179;
+  --rule:#CBBE9E;
+  --rule-soft:#DED4B9;
+  --accent:#A23327;
+  --accent-soft:#A2332722;
+  --indigo:#33465E;
+  --indigo-soft:#33465E1c;
+  --moss:#4B6349;
+  --moss-soft:#4B63491c;
+  --brass:#8F6B28;
+  --brass-soft:#8F6B281c;
+  --shadow:0 1px 2px rgba(33,30,25,0.08), 0 4px 14px rgba(33,30,25,0.06);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-body);
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent-soft);}
+a{color:var(--indigo);}
+a:hover{color:var(--accent);}
+button{font-family:inherit;}
+button:focus-visible, a:focus-visible, input:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+
+.page{max-width:1320px;margin:0 auto;padding:0 24px 64px;}
+
+/* ---------- header ---------- */
+header.masthead{
+  padding:40px 0 22px;
+  border-bottom:1px solid var(--rule);
+  display:flex;
+  flex-wrap:wrap;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:16px 32px;
+}
+.masthead-title{display:flex;flex-direction:column;gap:6px;min-width:280px;}
+.eyebrow{
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-faint);
+}
+h1{
+  font-family:var(--font-display);
+  font-weight:600;
+  font-size:clamp(28px,4vw,40px);
+  margin:0;
+  text-wrap:balance;
+  letter-spacing:-0.01em;
+}
+.subtitle{
+  color:var(--ink-soft);
+  font-size:14.5px;
+  max-width:52ch;
+}
+.stat-row{
+  display:flex;
+  gap:22px;
+  flex-wrap:wrap;
+  align-items:flex-end;
+}
+.stat{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:74px;
+}
+.stat .n{
+  font-family:var(--font-mono);
+  font-variant-numeric:tabular-nums;
+  font-size:22px;
+  font-weight:600;
+}
+.stat .l{
+  font-size:11px;
+  color:var(--ink-soft);
+  letter-spacing:.03em;
+}
+
+/* ---------- toolbar ---------- */
+.toolbar{
+  position:sticky;
+  top:0;
+  z-index:20;
+  background:var(--paper);
+  padding:16px 0 14px;
+  border-bottom:1px solid var(--rule);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.search-row{display:flex;gap:10px;align-items:center;}
+.search-row input[type="search"]{
+  flex:1;
+  min-width:0;
+  background:var(--paper-raised);
+  border:1px solid var(--rule);
+  color:var(--ink);
+  padding:9px 12px;
+  font-size:14px;
+  font-family:var(--font-body);
+  border-radius:3px;
+}
+.search-row input[type="search"]::placeholder{color:var(--ink-faint);}
+.result-count{
+  font-family:var(--font-mono);
+  font-size:12px;
+  color:var(--ink-soft);
+  white-space:nowrap;
+}
+.chip-groups{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;}
+.chip-group{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.chip-group-label{
+  font-family:var(--font-mono);
+  font-size:10.5px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--ink-faint);
+  margin-right:2px;
+}
+.chip{
+  border:1px solid var(--rule);
+  background:transparent;
+  color:var(--ink-soft);
+  padding:5px 11px;
+  border-radius:20px;
+  font-size:12.5px;
+  cursor:pointer;
+  transition:background .12s, color .12s, border-color .12s;
+  white-space:nowrap;
+}
+.chip:hover{border-color:var(--ink-faint);color:var(--ink);}
+.chip[aria-pressed="true"]{
+  background:var(--cat-color, var(--ink));
+  border-color:var(--cat-color, var(--ink));
+  color:var(--paper);
+}
+.chip.star[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);}
+.chip-reset{
+  background:none;border:none;color:var(--ink-faint);
+  font-size:12px;cursor:pointer;text-decoration:underline;
+  padding:5px 4px;
+}
+.chip-reset:hover{color:var(--accent);}
+
+/* ---------- layout ---------- */
+.layout{
+  display:grid;
+  grid-template-columns:minmax(340px,460px) 1fr;
+  gap:28px;
+  margin-top:24px;
+  align-items:start;
+}
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr;}
+}
+
+/* ---------- map panel ---------- */
+.map-panel{
+  position:sticky;
+  top:118px;
+  background:var(--paper-raised);
+  border:1px solid var(--rule);
+  border-radius:4px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+@media (max-width:900px){ .map-panel{position:static;} }
+.map-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:12px 14px 0;
+}
+.map-toggle{display:flex;border:1px solid var(--rule);border-radius:20px;overflow:hidden;}
+.map-toggle button{
+  border:none;background:transparent;color:var(--ink-soft);
+  padding:5px 13px;font-size:12px;cursor:pointer;font-family:var(--font-mono);
+}
+.map-toggle button[aria-pressed="true"]{background:var(--indigo);color:var(--paper-raised);}
+.map-caption{
+  font-family:var(--font-mono);
+  font-size:10.5px;
+  color:var(--ink-faint);
+  padding:0 14px;
+}
+.map-svg-wrap{padding:6px 8px 10px;}
+svg#atlas{width:100%;height:auto;display:block;}
+.grat-line{stroke:var(--rule-soft);stroke-width:1;}
+.grat-label{font-family:var(--font-mono);font-size:8.5px;fill:var(--ink-faint);}
+.region-label{font-family:var(--font-display);font-size:12px;fill:var(--ink-faint);font-style:italic;}
+.pt{cursor:pointer;stroke:var(--paper-raised);stroke-width:1.2;transition:r .12s;}
+.pt:hover{stroke:var(--ink);}
+.pt.selected{stroke:var(--accent);stroke-width:2;}
+.pt-ring{fill:none;stroke:var(--accent);stroke-width:1.4;opacity:0;pointer-events:none;}
+.pt-ring.show{opacity:1;animation:ring-pulse 1.1s ease-out;}
+@keyframes ring-pulse{
+  from{opacity:.9;transform-origin:center;transform:scale(0.4);}
+  to{opacity:0;transform:scale(2.6);}
+}
+@media (prefers-reduced-motion:reduce){
+  .pt-ring.show{animation:none;opacity:.6;}
+}
+.legend{
+  display:flex;flex-wrap:wrap;gap:10px 16px;
+  padding:8px 16px 14px;
+  border-top:1px solid var(--rule-soft);
+  font-size:11.5px;color:var(--ink-soft);
+}
+.legend-item{display:flex;align-items:center;gap:6px;}
+.legend-dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+
+/* ---------- list ---------- */
+.list-head{
+  display:flex;align-items:baseline;justify-content:space-between;
+  margin-bottom:10px;
+}
+.sort-select{
+  font-family:var(--font-mono);font-size:11.5px;color:var(--ink-soft);
+  background:transparent;border:1px solid var(--rule);border-radius:3px;padding:4px 6px;
+}
+.cards{display:flex;flex-direction:column;gap:10px;}
+.card{
+  background:var(--paper-raised);
+  border:1px solid var(--rule);
+  border-left:3px solid var(--cat-color);
+  border-radius:3px;
+  padding:13px 15px;
+  cursor:pointer;
+  transition:box-shadow .12s, transform .12s;
+}
+.card:hover{box-shadow:var(--shadow);}
+.card.selected{box-shadow:var(--shadow);outline:1.5px solid var(--accent);outline-offset:-1px;}
+.card-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;}
+.card-name{
+  font-family:var(--font-display);
+  font-size:16.5px;
+  font-weight:600;
+  text-wrap:balance;
+}
+.card-name .star{color:var(--accent);margin-right:5px;}
+.card-badges{display:flex;gap:5px;flex-shrink:0;align-items:center;}
+.badge{
+  font-family:var(--font-mono);
+  font-size:10px;
+  padding:2px 6px;
+  border-radius:3px;
+  background:var(--cat-soft);
+  color:var(--cat-color);
+  white-space:nowrap;
+}
+.grade-dots{font-size:9px;letter-spacing:1px;color:var(--ink-faint);font-family:var(--font-mono);}
+.card-meta{
+  display:flex;flex-wrap:wrap;gap:4px 10px;
+  margin-top:4px;
+  font-size:12px;color:var(--ink-soft);
+  font-family:var(--font-mono);
+}
+.card-meta .sep{color:var(--ink-faint);}
+.card-key-reason{
+  margin-top:7px;font-size:12.5px;color:var(--accent);
+  font-style:italic;
+}
+.card-evidence{
+  margin-top:8px;font-size:13px;color:var(--ink-soft);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.card.expanded .card-evidence{-webkit-line-clamp:unset;color:var(--ink);}
+.card-detail{
+  display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--rule);
+  font-size:13px;
+}
+.card.expanded .card-detail{display:block;}
+.detail-row{display:flex;gap:8px;margin-bottom:6px;}
+.detail-row .k{
+  font-family:var(--font-mono);font-size:10.5px;color:var(--ink-faint);
+  text-transform:uppercase;letter-spacing:.05em;width:78px;flex-shrink:0;padding-top:2px;
+}
+.detail-row .v{flex:1;}
+.my-note{
+  background:var(--brass-soft);border:1px solid var(--brass);border-style:dashed;
+  padding:6px 9px;border-radius:3px;font-size:12.5px;color:var(--ink);
+}
+.src-links{display:flex;flex-direction:column;gap:3px;}
+.src-links a{font-size:12px;word-break:break-all;}
+.no-coord-tag{
+  font-family:var(--font-mono);font-size:10px;color:var(--ink-faint);
+  border:1px dashed var(--rule);padding:1px 6px;border-radius:3px;
+}
+
+.empty-state{
+  padding:40px 20px;text-align:center;color:var(--ink-faint);
+  border:1px dashed var(--rule);border-radius:4px;font-size:13.5px;
+}
+
+footer{
+  margin-top:44px;padding-top:16px;border-top:1px solid var(--rule);
+  font-size:11.5px;color:var(--ink-faint);font-family:var(--font-mono);
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+}
+</style>
+
+<div class="page">
+  <div id="loadError" style="display:none;background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:10px 14px;margin:16px 0;font-size:13px;"></div>
+  <header class="masthead">
+    <div class="masthead-title">
+      <span class="eyebrow">村上春樹 場所台帳 — 장소 아카이브</span>
+      <h1>하루키 문학 지도</h1>
+      <p class="subtitle">소설·에세이 속 장소를 근거 등급과 함께 정리한 원장(元帳). 별표는 서사적 핵심 무대, 색은 실존 여부를 뜻한다.</p>
+    </div>
+    <div class="stat-row" id="statRow"></div>
+  </header>
+
+  <div class="toolbar">
+    <div class="search-row">
+      <input type="search" id="searchInput" placeholder="장소명, 작품명, 근거 텍스트로 검색…" autocomplete="off">
+      <span class="result-count" id="resultCount"></span>
+    </div>
+    <div class="chip-groups">
+      <div class="chip-group" id="catGroup">
+        <span class="chip-group-label">분류</span>
+      </div>
+      <div class="chip-group" id="typeGroup">
+        <span class="chip-group-label">출처유형</span>
+      </div>
+      <div class="chip-group" id="gradeGroup">
+        <span class="chip-group-label">근거등급</span>
+      </div>
+      <div class="chip-group" id="starGroup">
+        <span class="chip-group-label">핵심장소</span>
+        <button class="chip star" id="starChip" aria-pressed="false">⭐ 만 보기</button>
+      </div>
+      <button class="chip-reset" id="resetBtn">필터 초기화</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="map-panel">
+      <div class="map-head">
+        <span class="eyebrow">개념도 · Conceptual Atlas</span>
+        <div class="map-toggle">
+          <button id="toggleJP" aria-pressed="true">일본</button>
+          <button id="toggleWorld" aria-pressed="false">세계</button>
+        </div>
+      </div>
+      <p class="map-caption">※ 실제 지리 좌표를 위경도 격자에 옮긴 개념도이며, 해안선은 그리지 않음(정밀 지도 아님)</p>
+      <div class="map-svg-wrap">
+        <svg id="atlas" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:var(--indigo)"></span>A 실존_작가</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--moss)"></span>B 실존_작중언급</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--brass)"></span>C 모티브추정</span>
+        <span class="legend-item">⭐ 핵심장소</span>
+      </div>
+    </div>
+
+    <div class="list-col">
+      <div class="list-head">
+        <span class="eyebrow" id="listCount">항목</span>
+      </div>
+      <div class="cards" id="cards"></div>
+      <div class="empty-state" id="emptyState" style="display:none;">조건에 맞는 장소가 없습니다.</div>
+    </div>
+  </div>
+
+  <footer>
+    <span>총 59건 · 좌표 확보 53건 · CLAUDE.md 원장 규칙에 따라 조사·검증</span>
+    <span id="lastFilterInfo"></span>
+  </footer>
+</div>
+
+<script>
+let PLACES = [];
+
+async function loadPlaces(){
+  const errBox = document.getElementById("loadError");
+  try {
+    const res = await fetch("places.csv");
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const text = await res.text();
+    const parsed = Papa.parse(text, {header:true, skipEmptyLines:true});
+    if(parsed.errors && parsed.errors.length){
+      console.warn("CSV 파싱 경고:", parsed.errors);
+    }
+    const EXPECTED_FIELDS = 15;
+    PLACES = parsed.data
+      .filter(row => Object.keys(row).length > 0 && row.name)
+      .map(row => {
+        if(Object.keys(row).length !== EXPECTED_FIELDS){
+          console.warn(`행 필드 수 불일치(${Object.keys(row).length}/${EXPECTED_FIELDS}):`, row.name);
+        }
+        return {
+          name: row.name,
+          lat: row.lat ? parseFloat(row.lat) : null,
+          lng: row.lng ? parseFloat(row.lng) : null,
+          address: row.address,
+          category: row.category,
+          work: row.work,
+          evidence: row.evidence,
+          grade: row.evidence_grade ? parseInt(row.evidence_grade, 10) : null,
+          sources: (row.source_url||"").split("|").map(s=>s.trim()).filter(Boolean),
+          status: row.status,
+          my_note: row.my_note,
+          key_location: row.key_location,
+          source_type: row.source_type,
+          region: row.region || "",
+          poi_type: row.poi_type || "",
+        };
+      });
+    PLACES.forEach((p,i)=>p.__idx=i);
+    init();
+  } catch(e) {
+    console.error("places.csv 로딩 실패:", e);
+    errBox.textContent = "places.csv를 불러오지 못했습니다: " + e.message;
+    errBox.style.display = "block";
+  }
+}
+
+const CAT_META = {
+  'A_실존_작가': {label:'A · 실존/작가', color:'var(--indigo)', soft:'var(--indigo-soft)', short:'A'},
+  'B_실존_작중언급': {label:'B · 실존/작중언급', color:'var(--moss)', soft:'var(--moss-soft)', short:'B'},
+  'C_모티브추정': {label:'C · 모티브추정', color:'var(--brass)', soft:'var(--brass-soft)', short:'C'},
+};
+const TYPE_LABELS = {'소설':'소설','에세이/자전적':'에세이·자전적','영화':'영화'};
+
+let state = {
+  q:'',
+  cats:new Set(),
+  types:new Set(),
+  grades:new Set(),
+  starOnly:false,
+  selected:null,
+  mapMode:'jp'
+};
+
+/* ---------- stat row ---------- */
+function renderStats(){
+  const total = PLACES.length;
+  const withCoord = PLACES.filter(p=>p.lat!=null).length;
+  const byCat = {};
+  PLACES.forEach(p=>byCat[p.category]=(byCat[p.category]||0)+1);
+  const stars = PLACES.filter(p=>p.key_location).length;
+  const el = document.getElementById('statRow');
+  el.innerHTML = [
+    ['전체', total],
+    ['좌표확보', withCoord],
+    ['핵심장소', stars],
+    ['A·실존작가', byCat['A_실존_작가']||0],
+    ['B·작중언급', byCat['B_실존_작중언급']||0],
+    ['C·모티브추정', byCat['C_모티브추정']||0],
+  ].map(([l,n])=>`<div class="stat"><span class="n">${n}</span><span class="l">${l}</span></div>`).join('');
+}
+
+/* ---------- chips ---------- */
+function makeChip(container, key, label, group, colorVar){
+  const b = document.createElement('button');
+  b.className='chip';
+  b.textContent=label;
+  b.setAttribute('aria-pressed','false');
+  if(colorVar) b.style.setProperty('--cat-color', colorVar);
+  b.addEventListener('click',()=>{
+    if(group.has(key)){group.delete(key);} else {group.add(key);}
+    b.setAttribute('aria-pressed', group.has(key)?'true':'false');
+    update();
+  });
+  container.appendChild(b);
+  return b;
+}
+function renderChips(){
+  const catGroup = document.getElementById('catGroup');
+  Object.entries(CAT_META).forEach(([k,m])=>makeChip(catGroup,k,m.label,state.cats,m.color));
+  const typeGroup = document.getElementById('typeGroup');
+  Object.entries(TYPE_LABELS).forEach(([k,l])=>makeChip(typeGroup,k,l,state.types,null));
+  const gradeGroup = document.getElementById('gradeGroup');
+  [1,2,3].forEach(g=>makeChip(gradeGroup,g,'등급'+g,state.grades,null));
+}
+
+document.getElementById('starChip').addEventListener('click', e=>{
+  state.starOnly = !state.starOnly;
+  e.target.setAttribute('aria-pressed', state.starOnly?'true':'false');
+  update();
+});
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  state.q=''; state.cats.clear(); state.types.clear(); state.grades.clear(); state.starOnly=false;
+  document.getElementById('searchInput').value='';
+  document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed','false'));
+  update();
+});
+document.getElementById('searchInput').addEventListener('input', e=>{
+  state.q = e.target.value.trim().toLowerCase();
+  update();
+});
+
+/* ---------- filtering ---------- */
+function filtered(){
+  return PLACES.filter(p=>{
+    if(state.cats.size && !state.cats.has(p.category)) return false;
+    if(state.types.size && !state.types.has(p.source_type)) return false;
+    if(state.grades.size && !state.grades.has(p.grade)) return false;
+    if(state.starOnly && !p.key_location) return false;
+    if(state.q){
+      const hay = (p.name+' '+p.work+' '+p.evidence+' '+p.address).toLowerCase();
+      if(!hay.includes(state.q)) return false;
+    }
+    return true;
+  });
+}
+
+/* ---------- cards ---------- */
+function gradeDots(g){
+  if(!g) return '<span class="grade-dots">—</span>';
+  let s='';
+  for(let i=1;i<=3;i++) s += i<=g ? '●' : '○';
+  return `<span class="grade-dots" title="근거등급 ${g}">${s}</span>`;
+}
+function cardHTML(p, idx){
+  const meta = CAT_META[p.category] || {color:'var(--ink-soft)',soft:'transparent',short:'?'};
+  const star = p.key_location ? `<span class="star">⭐</span>` : '';
+  const coordTag = p.lat==null ? `<span class="no-coord-tag">좌표 미상</span>` : '';
+  const sources = (p.sources||[]).filter(Boolean).map(u=>`<a href="${escAttr(u)}" target="_blank" rel="noopener">${escHtml(u)}</a>`).join('');
+  return `
+  <article class="card" data-id="${idx}" style="--cat-color:${meta.color};--cat-soft:${meta.soft}">
+    <div class="card-top">
+      <div class="card-name">${star}${escHtml(p.name)}</div>
+      <div class="card-badges">
+        <span class="badge">${meta.short}</span>
+        ${gradeDots(p.grade)}
+      </div>
+    </div>
+    <div class="card-meta">
+      <span>${escHtml(p.work||'—')}</span>
+      <span class="sep">·</span>
+      <span>${TYPE_LABELS[p.source_type]||p.source_type||'—'}</span>
+      <span class="sep">·</span>
+      <span>${p.status}</span>
+      ${coordTag}
+    </div>
+    ${p.key_location ? `<div class="card-key-reason">${escHtml(p.key_location)}</div>` : ''}
+    <div class="card-evidence">${escHtml(p.evidence||'')}</div>
+    <div class="card-detail">
+      <div class="detail-row"><span class="k">주소</span><span class="v">${escHtml(p.address||'미상')}</span></div>
+      <div class="detail-row"><span class="k">좌표</span><span class="v" style="font-family:var(--font-mono)">${p.lat!=null ? p.lat.toFixed(5)+', '+p.lng.toFixed(5) : '미상 — 절대 규칙에 따라 추측 좌표 미기재'}</span></div>
+      ${p.my_note ? `<div class="detail-row"><span class="k">내 메모</span><span class="v"><div class="my-note">${escHtml(p.my_note)}</div></span></div>` : ''}
+      ${sources ? `<div class="detail-row"><span class="k">출처</span><span class="v src-links">${sources}</span></div>` : ''}
+    </div>
+  </article>`;
+}
+function escHtml(s){return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function escAttr(s){return escHtml(s);}
+
+function renderCards(list){
+  const wrap = document.getElementById('cards');
+  const empty = document.getElementById('emptyState');
+  document.getElementById('resultCount').textContent = `${list.length} / ${PLACES.length}건`;
+  document.getElementById('listCount').textContent = `장소 목록 (${list.length}건)`;
+  if(!list.length){ wrap.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  wrap.innerHTML = list.map(p=>cardHTML(p, p.__idx)).join('');
+  wrap.querySelectorAll('.card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      const idx = parseInt(card.dataset.id);
+      const isExpanding = !card.classList.contains('expanded');
+      wrap.querySelectorAll('.card.expanded').forEach(c=>{ if(c!==card) c.classList.remove('expanded'); });
+      card.classList.toggle('expanded');
+      selectPlace(idx, isExpanding, true);
+    });
+  });
+}
+
+/* ---------- atlas (diagrammatic map) ---------- */
+const BOUNDS = {
+  jp:   {lat0:24, lat1:46, lng0:122, lng1:147, step:5,
+         regions:[
+           ['홋카이도',43.5,142.8],['도호쿠',39.2,140.8],['간토',36.0,139.7],
+           ['간사이',34.9,135.6],['시코쿠',33.9,133.6],['규슈',32.6,130.8]
+         ]},
+  world:{lat0:5, lat1:65, lng0:-165, lng1:35, step:20, regions:[]}
+};
+const VB = 600;
+function project(lat,lng,b){
+  const x = (lng - b.lng0) / (b.lng1 - b.lng0) * VB;
+  const y = (b.lat1 - lat) / (b.lat1 - b.lat0) * VB;
+  return [x,y];
+}
+function buildAtlas(){
+  const svg = document.getElementById('atlas');
+  const b = BOUNDS[state.mapMode];
+  svg.setAttribute('viewBox', `0 0 ${VB} ${VB}`);
+  let parts = [];
+  // graticule
+  for(let lat=Math.ceil(b.lat0/b.step)*b.step; lat<=b.lat1; lat+=b.step){
+    const [,y] = project(lat, b.lng0, b);
+    parts.push(`<line class="grat-line" x1="0" y1="${y}" x2="${VB}" y2="${y}"/>`);
+    parts.push(`<text class="grat-label" x="4" y="${y-3}">${lat}°N</text>`);
+  }
+  for(let lng=Math.ceil(b.lng0/b.step)*b.step; lng<=b.lng1; lng+=b.step){
+    const [x] = project(b.lat0, lng, b);
+    parts.push(`<line class="grat-line" x1="${x}" y1="0" x2="${x}" y2="${VB}"/>`);
+    const lbl = lng<0 ? `${-lng}°W` : `${lng}°E`;
+    parts.push(`<text class="grat-label" x="${x+3}" y="${VB-5}">${lbl}</text>`);
+  }
+  // region ghost labels
+  (b.regions||[]).forEach(([name,lat,lng])=>{
+    const [x,y] = project(lat,lng,b);
+    parts.push(`<text class="region-label" x="${x}" y="${y}" text-anchor="middle">${name}</text>`);
+  });
+  // points
+  const inBounds = p => p.lat!=null && p.lat>=b.lat0-2 && p.lat<=b.lat1+2 && p.lng>=b.lng0-2 && p.lng<=b.lng1+2;
+  const visible = filtered().filter(inBounds);
+  const allInBounds = PLACES.filter(inBounds);
+  // dim points not in current filter, still show as faint
+  allInBounds.forEach(p=>{
+    const [x,y] = project(p.lat,p.lng,b);
+    const meta = CAT_META[p.category] || {color:'var(--ink-faint)'};
+    const inFilter = visible.includes(p);
+    const r = p.key_location ? 6 : 4;
+    const opacity = inFilter ? 1 : 0.16;
+    parts.push(`<circle class="pt${state.selected===p.__idx?' selected':''}" data-id="${p.__idx}" cx="${x}" cy="${y}" r="${r}" fill="${meta.color}" opacity="${opacity}"><title>${escHtml(p.name)}</title></circle>`);
+    if(state.selected===p.__idx){
+      parts.push(`<circle class="pt-ring show" cx="${x}" cy="${y}" r="${r}" style="stroke:var(--accent)"/>`);
+    }
+  });
+  svg.innerHTML = parts.join('');
+  svg.querySelectorAll('.pt').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const idx = parseInt(el.dataset.id);
+      selectPlace(idx, true, false);
+    });
+  });
+}
+
+/* ---------- selection sync ---------- */
+function selectPlace(idx, expand, fromCard){
+  state.selected = expand ? idx : null;
+  buildAtlas();
+  if(!fromCard){
+    const card = document.querySelector(`.card[data-id="${idx}"]`);
+    if(card){
+      document.querySelectorAll('.card.expanded').forEach(c=>{ if(c!==card) c.classList.remove('expanded'); });
+      if(expand) card.classList.add('expanded');
+      card.scrollIntoView({behavior:'smooth', block:'center'});
+    }
+  }
+  document.querySelectorAll('.card').forEach(c=>{
+    c.classList.toggle('selected', parseInt(c.dataset.id)===idx && expand);
+  });
+}
+
+document.getElementById('toggleJP').addEventListener('click', ()=>{
+  state.mapMode='jp';
+  document.getElementById('toggleJP').setAttribute('aria-pressed','true');
+  document.getElementById('toggleWorld').setAttribute('aria-pressed','false');
+  buildAtlas();
+});
+document.getElementById('toggleWorld').addEventListener('click', ()=>{
+  state.mapMode='world';
+  document.getElementById('toggleJP').setAttribute('aria-pressed','false');
+  document.getElementById('toggleWorld').setAttribute('aria-pressed','true');
+  buildAtlas();
+});
+
+/* ---------- init ---------- */
+function update(){
+  const list = filtered();
+  renderCards(list);
+  buildAtlas();
+}
+function init(){
+  renderStats();
+  renderChips();
+  update();
+}
+loadPlaces();
+</script>

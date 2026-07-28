@@ -220,6 +220,19 @@ h1{
   padding:5px 4px;
 }
 .chip-reset:hover{color:var(--accent);}
+.work-tree-panel{margin-top:4px;}
+.work-tree-head{display:flex;gap:10px;align-items:center;margin-bottom:8px;}
+.work-tree-head input[type="search"]{
+  flex:1;min-width:0;background:var(--paper-raised);border:1px solid var(--rule);
+  color:var(--ink);padding:6px 10px;font-size:13px;border-radius:3px;
+}
+.work-tree{max-height:180px;overflow-y:auto;border:1px solid var(--rule-soft);border-radius:4px;padding:8px 10px;background:var(--paper-raised);}
+.wt-group{margin-bottom:6px;}
+.wt-group-label{font-family:var(--font-mono);font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;margin:6px 0 3px;}
+.wt-item{display:flex;align-items:center;gap:6px;font-size:12.5px;padding:2px 0 2px 12px;cursor:pointer;color:var(--ink-soft);}
+.wt-item:hover{color:var(--ink);}
+.wt-item input{cursor:pointer;}
+.wt-item.hidden-by-search{display:none;}
 
 /* ---------- layout ---------- */
 .layout{
@@ -416,6 +429,14 @@ footer{
       </div>
       <button class="chip-reset" id="resetBtn">필터 초기화</button>
     </div>
+    <div class="work-tree-panel">
+      <div class="work-tree-head">
+        <span class="chip-group-label">작품</span>
+        <input type="search" id="workTreeSearch" placeholder="작품명 검색…" autocomplete="off">
+        <button class="chip-reset" id="workTreeToggleAll">전체 켜기/끄기</button>
+      </div>
+      <div id="workTree" class="work-tree"></div>
+    </div>
   </div>
 
   <div class="layout">
@@ -532,6 +553,83 @@ function renderStats(){
   ].map(([l,n])=>`<div class="stat"><span class="n">${n}</span><span class="l">${l}</span></div>`).join('');
 }
 
+/* ---------- work tree ---------- */
+function buildWorkTree(){
+  const tree = {'장편소설':new Set(), '단편집':new Map(), '에세이·자전적':new Set(), '영화':new Set()};
+  PLACES.forEach(p=>{
+    if(p.source_type==='소설'){
+      if(p.work.includes(' - ')){
+        const [coll, piece] = p.work.split(' - ').map(s=>s.trim());
+        if(!tree['단편집'].has(coll)) tree['단편집'].set(coll, new Set());
+        tree['단편집'].get(coll).add(piece);
+      } else {
+        tree['장편소설'].add(p.work);
+      }
+    } else if(p.source_type==='에세이/자전적'){
+      tree['에세이·자전적'].add(p.work);
+    } else if(p.source_type==='영화'){
+      tree['영화'].add(p.work);
+    }
+  });
+  return tree;
+}
+
+function workItemHTML(workName){
+  const checked = state.excludedWorks.has(workName) ? '' : 'checked';
+  return `<label class="wt-item" data-work="${escAttr(workName)}"><input type="checkbox" ${checked}> ${escHtml(workName)}</label>`;
+}
+
+function renderWorkTree(){
+  const tree = buildWorkTree();
+  const root = document.getElementById('workTree');
+  let html = '';
+  html += `<div class="wt-group"><div class="wt-group-label">장편소설</div>`;
+  html += [...tree['장편소설']].sort().map(workItemHTML).join('');
+  html += `</div>`;
+  html += `<div class="wt-group"><div class="wt-group-label">단편집</div>`;
+  [...tree['단편집'].keys()].sort().forEach(coll=>{
+    html += `<div style="padding-left:0;font-size:12px;color:var(--ink-soft);margin-top:4px;">${escHtml(coll)}</div>`;
+    html += [...tree['단편집'].get(coll)].sort().map(piece=>workItemHTML(`${coll} - ${piece}`)).join('');
+  });
+  html += `</div>`;
+  html += `<div class="wt-group"><div class="wt-group-label">에세이·자전적</div>`;
+  html += [...tree['에세이·자전적']].sort().map(workItemHTML).join('');
+  html += `</div>`;
+  html += `<div class="wt-group"><div class="wt-group-label">영화</div>`;
+  html += [...tree['영화']].sort().map(workItemHTML).join('');
+  html += `</div>`;
+  root.innerHTML = html;
+  root.querySelectorAll('.wt-item input').forEach(cb=>{
+    cb.addEventListener('change', e=>{
+      const workName = e.target.closest('.wt-item').dataset.work;
+      if(e.target.checked) state.excludedWorks.delete(workName);
+      else state.excludedWorks.add(workName);
+      update();
+    });
+  });
+  applyWorkTreeSearch();
+}
+
+function applyWorkTreeSearch(){
+  const q = (state.workTreeQuery||'').toLowerCase();
+  document.querySelectorAll('.wt-item').forEach(el=>{
+    const match = !q || el.dataset.work.toLowerCase().includes(q);
+    el.classList.toggle('hidden-by-search', !match);
+  });
+}
+
+document.getElementById('workTreeSearch').addEventListener('input', e=>{
+  state.workTreeQuery = e.target.value.trim();
+  applyWorkTreeSearch();
+});
+document.getElementById('workTreeToggleAll').addEventListener('click', ()=>{
+  const allExcluded = PLACES.every(p=>state.excludedWorks.has(p.work));
+  if(allExcluded) state.excludedWorks.clear();
+  else PLACES.forEach(p=>state.excludedWorks.add(p.work));
+  renderWorkTree();
+  update();
+});
+
 /* ---------- chips ---------- */
 function makeChip(container, key, label, group, colorVar){
   const b = document.createElement('button');
@@ -567,9 +665,11 @@ document.getElementById('starChip').addEventListener('click', e=>{
 });
 document.getElementById('resetBtn').addEventListener('click', ()=>{
   state.q=''; state.cats.clear(); state.types.clear(); state.grades.clear();
-  state.regions.clear(); state.starOnly=false;
+  state.regions.clear(); state.excludedWorks.clear(); state.workTreeQuery=''; state.starOnly=false;
   document.getElementById('searchInput').value='';
+  document.getElementById('workTreeSearch').value='';
   document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed','false'));
+  renderWorkTree();
   update();
 });
 document.getElementById('searchInput').addEventListener('input', e=>{
@@ -739,6 +839,7 @@ function init(){
   initMap();
   renderStats();
   renderChips();
+  renderWorkTree();
   update();
 }
 loadPlaces();

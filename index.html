@@ -263,7 +263,10 @@ h1{
   padding:0 14px;
 }
 .map-svg-wrap{padding:6px 8px 10px;}
-svg#atlas{width:100%;height:auto;display:block;}
+#leafletMap{width:100%;height:520px;display:block;background:var(--paper-raised);}
+.leaflet-popup-content-wrapper{background:var(--paper-raised);color:var(--ink);border-radius:4px;}
+.leaflet-popup-content{font-family:var(--font-body);font-size:13px;margin:10px 12px;}
+.leaflet-popup-tip{background:var(--paper-raised);}
 .grat-line{stroke:var(--rule-soft);stroke-width:1;}
 .grat-label{font-family:var(--font-mono);font-size:8.5px;fill:var(--ink-faint);}
 .region-label{font-family:var(--font-display);font-size:12px;fill:var(--ink-faint);font-style:italic;}
@@ -415,15 +418,10 @@ footer{
   <div class="layout">
     <div class="map-panel">
       <div class="map-head">
-        <span class="eyebrow">개념도 · Conceptual Atlas</span>
-        <div class="map-toggle">
-          <button id="toggleJP" aria-pressed="true">일본</button>
-          <button id="toggleWorld" aria-pressed="false">세계</button>
-        </div>
+        <span class="eyebrow">지도 · OpenStreetMap</span>
       </div>
-      <p class="map-caption">※ 실제 지리 좌표를 위경도 격자에 옮긴 개념도이며, 해안선은 그리지 않음(정밀 지도 아님)</p>
       <div class="map-svg-wrap">
-        <svg id="atlas" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="leafletMap"></div>
       </div>
       <div class="legend">
         <span class="legend-item"><span class="legend-dot" style="background:var(--indigo)"></span>A 실존_작가</span>
@@ -646,72 +644,66 @@ function renderCards(list){
   });
 }
 
-/* ---------- atlas (diagrammatic map) ---------- */
-const BOUNDS = {
-  jp:   {lat0:24, lat1:46, lng0:122, lng1:147, step:5,
-         regions:[
-           ['홋카이도',43.5,142.8],['도호쿠',39.2,140.8],['간토',36.0,139.7],
-           ['간사이',34.9,135.6],['시코쿠',33.9,133.6],['규슈',32.6,130.8]
-         ]},
-  world:{lat0:5, lat1:65, lng0:-165, lng1:35, step:20, regions:[]}
-};
-const VB = 600;
-function project(lat,lng,b){
-  const x = (lng - b.lng0) / (b.lng1 - b.lng0) * VB;
-  const y = (b.lat1 - lat) / (b.lat1 - b.lat0) * VB;
-  return [x,y];
+/* ---------- leaflet map ---------- */
+let leafletMap = null;
+let markerLayer = null;
+const markerRefs = new Map(); // __idx -> L.CircleMarker
+
+function initMap(){
+  leafletMap = L.map('leafletMap', {scrollWheelZoom:true}).setView([35.68, 139.75], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(leafletMap);
+  markerLayer = L.layerGroup().addTo(leafletMap);
 }
-function buildAtlas(){
-  const svg = document.getElementById('atlas');
-  const b = BOUNDS[state.mapMode];
-  svg.setAttribute('viewBox', `0 0 ${VB} ${VB}`);
-  let parts = [];
-  // graticule
-  for(let lat=Math.ceil(b.lat0/b.step)*b.step; lat<=b.lat1; lat+=b.step){
-    const [,y] = project(lat, b.lng0, b);
-    parts.push(`<line class="grat-line" x1="0" y1="${y}" x2="${VB}" y2="${y}"/>`);
-    parts.push(`<text class="grat-label" x="4" y="${y-3}">${lat}°N</text>`);
-  }
-  for(let lng=Math.ceil(b.lng0/b.step)*b.step; lng<=b.lng1; lng+=b.step){
-    const [x] = project(b.lat0, lng, b);
-    parts.push(`<line class="grat-line" x1="${x}" y1="0" x2="${x}" y2="${VB}"/>`);
-    const lbl = lng<0 ? `${-lng}°W` : `${lng}°E`;
-    parts.push(`<text class="grat-label" x="${x+3}" y="${VB-5}">${lbl}</text>`);
-  }
-  // region ghost labels
-  (b.regions||[]).forEach(([name,lat,lng])=>{
-    const [x,y] = project(lat,lng,b);
-    parts.push(`<text class="region-label" x="${x}" y="${y}" text-anchor="middle">${name}</text>`);
-  });
-  // points
-  const inBounds = p => p.lat!=null && p.lat>=b.lat0-2 && p.lat<=b.lat1+2 && p.lng>=b.lng0-2 && p.lng<=b.lng1+2;
-  const visible = filtered().filter(inBounds);
-  const allInBounds = PLACES.filter(inBounds);
-  // dim points not in current filter, still show as faint
-  allInBounds.forEach(p=>{
-    const [x,y] = project(p.lat,p.lng,b);
-    const meta = CAT_META[p.category] || {color:'var(--ink-faint)'};
-    const inFilter = visible.includes(p);
-    const r = p.key_location ? 6 : 4;
-    const opacity = inFilter ? 1 : 0.16;
-    parts.push(`<circle class="pt${state.selected===p.__idx?' selected':''}" data-id="${p.__idx}" cx="${x}" cy="${y}" r="${r}" fill="${meta.color}" opacity="${opacity}"><title>${escHtml(p.name)}</title></circle>`);
-    if(state.selected===p.__idx){
-      parts.push(`<circle class="pt-ring show" cx="${x}" cy="${y}" r="${r}" style="stroke:var(--accent)"/>`);
-    }
-  });
-  svg.innerHTML = parts.join('');
-  svg.querySelectorAll('.pt').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      const idx = parseInt(el.dataset.id);
-      selectPlace(idx, true, false);
+
+function resolveCssColor(varExpr){
+  const m = varExpr.match(/var\((--[a-zA-Z0-9-]+)\)/);
+  if(!m) return varExpr;
+  return getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() || varExpr;
+}
+
+function renderMarkers(list){
+  markerLayer.clearLayers();
+  markerRefs.clear();
+  list.filter(p=>p.lat!=null && p.lng!=null).forEach(p=>{
+    const meta = CAT_META[p.category] || {color:'#9C9179'};
+    const catColor = resolveCssColor(meta.color);
+    const accentColor = resolveCssColor('var(--accent)');
+    const radius = p.key_location ? 9 : 6;
+    const isFood = p.poi_type === '식당카페';
+    const marker = L.circleMarker([p.lat, p.lng], {
+      radius,
+      color: p.__idx===state.selected ? accentColor : catColor,
+      weight: p.__idx===state.selected ? 2.5 : 1.2,
+      fillColor: catColor,
+      fillOpacity: 0.85,
+      ...(isFood ? {radius: radius+2, dashArray:'2,2'} : {}),
     });
+    marker.bindPopup(`<strong>${escHtml(p.name)}</strong><br>${escHtml(p.work||'')}`);
+    marker.on('click', ()=>{
+      const card = document.querySelector(`.card[data-id="${p.__idx}"]`);
+      const isExpanding = !(card && card.classList.contains('expanded'));
+      selectPlace(p.__idx, isExpanding, false);
+    });
+    marker.addTo(markerLayer);
+    markerRefs.set(p.__idx, marker);
   });
+}
+
+function focusMarker(idx){
+  const marker = markerRefs.get(idx);
+  if(!marker) return;
+  leafletMap.panTo(marker.getLatLng());
+  marker.openPopup();
 }
 
 /* ---------- selection sync ---------- */
 function selectPlace(idx, expand, fromCard){
   state.selected = expand ? idx : null;
-  buildAtlas();
+  renderMarkers(filtered());
+  if(expand) focusMarker(idx);
   if(!fromCard){
     const card = document.querySelector(`.card[data-id="${idx}"]`);
     if(card){
@@ -725,26 +717,15 @@ function selectPlace(idx, expand, fromCard){
   });
 }
 
-document.getElementById('toggleJP').addEventListener('click', ()=>{
-  state.mapMode='jp';
-  document.getElementById('toggleJP').setAttribute('aria-pressed','true');
-  document.getElementById('toggleWorld').setAttribute('aria-pressed','false');
-  buildAtlas();
-});
-document.getElementById('toggleWorld').addEventListener('click', ()=>{
-  state.mapMode='world';
-  document.getElementById('toggleJP').setAttribute('aria-pressed','false');
-  document.getElementById('toggleWorld').setAttribute('aria-pressed','true');
-  buildAtlas();
-});
 
 /* ---------- init ---------- */
 function update(){
   const list = filtered();
   renderCards(list);
-  buildAtlas();
+  renderMarkers(list);
 }
 function init(){
+  initMap();
   renderStats();
   renderChips();
   update();

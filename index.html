@@ -407,6 +407,9 @@ footer{
       <div class="chip-group" id="gradeGroup">
         <span class="chip-group-label">근거등급</span>
       </div>
+      <div class="chip-group" id="regionGroup">
+        <span class="chip-group-label">지역</span>
+      </div>
       <div class="chip-group" id="starGroup">
         <span class="chip-group-label">핵심장소</span>
         <button class="chip star" id="starChip" aria-pressed="false">⭐ 만 보기</button>
@@ -505,9 +508,10 @@ let state = {
   cats:new Set(),
   types:new Set(),
   grades:new Set(),
+  regions:new Set(),
+  excludedWorks:new Set(),
   starOnly:false,
   selected:null,
-  mapMode:'jp'
 };
 
 /* ---------- stat row ---------- */
@@ -550,6 +554,10 @@ function renderChips(){
   Object.entries(TYPE_LABELS).forEach(([k,l])=>makeChip(typeGroup,k,l,state.types,null));
   const gradeGroup = document.getElementById('gradeGroup');
   [1,2,3].forEach(g=>makeChip(gradeGroup,g,'등급'+g,state.grades,null));
+  const regionGroup = document.getElementById('regionGroup');
+  const REGION_ORDER = ['간토','간사이','홋카이도','규슈','기타','해외'];
+  const presentRegions = REGION_ORDER.filter(r=>PLACES.some(p=>p.region===r));
+  presentRegions.forEach(r=>makeChip(regionGroup,r,r,state.regions,null));
 }
 
 document.getElementById('starChip').addEventListener('click', e=>{
@@ -558,7 +566,8 @@ document.getElementById('starChip').addEventListener('click', e=>{
   update();
 });
 document.getElementById('resetBtn').addEventListener('click', ()=>{
-  state.q=''; state.cats.clear(); state.types.clear(); state.grades.clear(); state.starOnly=false;
+  state.q=''; state.cats.clear(); state.types.clear(); state.grades.clear();
+  state.regions.clear(); state.starOnly=false;
   document.getElementById('searchInput').value='';
   document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed','false'));
   update();
@@ -574,6 +583,8 @@ function filtered(){
     if(state.cats.size && !state.cats.has(p.category)) return false;
     if(state.types.size && !state.types.has(p.source_type)) return false;
     if(state.grades.size && !state.grades.has(p.grade)) return false;
+    if(state.regions.size && !state.regions.has(p.region)) return false;
+    if(state.excludedWorks.has(p.work)) return false;
     if(state.starOnly && !p.key_location) return false;
     if(state.q){
       const hay = (p.name+' '+p.work+' '+p.evidence+' '+p.address).toLowerCase();
